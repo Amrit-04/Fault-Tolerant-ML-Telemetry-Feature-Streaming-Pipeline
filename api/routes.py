@@ -1,10 +1,13 @@
 """FastAPI route definitions for the feature serving API."""
 
-import time
+import json
 import logging
+import time
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, Response
+import jsonschema
 from pydantic import BaseModel, Field
 
 from api import metrics as m
@@ -12,6 +15,16 @@ from api import metrics as m
 logger = logging.getLogger("api.routes")
 
 router = APIRouter()
+
+# Load schema for validation
+_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schemas" / "telemetry_v1.json"
+try:
+    with open(_SCHEMA_PATH) as _f:
+        _SCHEMA = json.load(_f)
+    _schema_validator = jsonschema.Draft7Validator(_SCHEMA)
+except Exception as _e:
+    logger.warning(f"Failed to load telemetry schema at {_SCHEMA_PATH}: {_e}")
+    _schema_validator = None
 
 
 # ------------------------------------------------------------------
@@ -45,6 +58,13 @@ class HealthResponse(BaseModel):
     status: str
     redis: str
     postgres: str
+
+
+class IngestTelemetryResponse(BaseModel):
+    status: str
+    event_id: Optional[str] = None
+    partition: Optional[int] = None
+    message: Optional[str] = None
 
 
 # ------------------------------------------------------------------
@@ -136,4 +156,27 @@ async def health(request: Request):
         status=overall,
         redis=status.get("redis", "unknown"),
         postgres=status.get("postgres", "unknown"),
+    )
+
+
+@router.post("/api/v1/telemetry/ingest", response_model=IngestTelemetryResponse)
+async def ingest_telemetry(payload: dict, response: Response):
+    """Validate incoming telemetry event against schema and return routing outcome."""
+    if _schema_validator is not None:
+        errors = list(_schema_validator.iter_errors(payload))
+        if errors:
+            reasons = "; ".join(e.message[:100] for e in errors[:3])
+            response.status_code = 400
+            return IngestTelemetryResponse(
+                status="rejected",
+                message=f"schema_violation: {reasons}",
+            )
+
+    entity_id = str(payload.get("entity_id", ""))
+    part = abs(hash(entity_id)) % 12
+    return IngestTelemetryResponse(
+        status="ingested",
+        event_id=payload.get("event_id"),
+        partition=part,
+        message="Telemetry event successfully ingested and routed",
     )

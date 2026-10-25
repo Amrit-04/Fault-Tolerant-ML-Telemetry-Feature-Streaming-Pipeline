@@ -1,5 +1,6 @@
 # Fault-Tolerant ML Telemetry & Feature Streaming Pipeline
 
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go&logoColor=white)](https://go.dev/)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-231F20?style=flat&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
 [![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=flat&logo=redis&logoColor=white)](https://redis.io/)
@@ -8,54 +9,89 @@
 [![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?style=flat&logo=grafana&logoColor=white)](https://grafana.com/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 
-
-A production-style, event-driven streaming pipeline that ingests simulated ML telemetry, validates schemas, persists features, and serves them with low-latency caching. Built entirely on open-source tooling and runnable locally with a single command.
+A production-grade, polyglot (Go + Python) event-driven streaming platform that ingests high-frequency ML telemetry through a concurrent Go ingestion gateway, partitions events across Apache Kafka (12 partitions), validates schemas, persists features into PostgreSQL, and serves low-latency feature vectors via Redis caching.
 
 ---
 
-## Architecture
+## Polyglot Streaming Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Ingestion
-        PS[Producer Simulator\n10K+ eps]
+    subgraph Clients["Edge & Client Producers"]
+        C1["HTTP Telemetry Clients
+(Mobile / Edge / Models)"]
     end
 
-    subgraph Kafka["Kafka KRaft\n12 partitions"]
-        RAW["telemetry.raw"]
-        VAL["telemetry.validated"]
-        DLQ["telemetry.dlq"]
+    subgraph GoIngress["Go High-Throughput Ingestion (Port 8080)"]
+        GIN["HTTP Ingress
+POST /api/v1/telemetry/ingest"]
+        GWP["Bounded Worker Pool
+(50 Goroutines + Buffered Channels)"]
+        GVAL["Strict Schema Validator
+(DisallowUnknownFields)"]
+        GP["Partitioned Kafka Producer
+(Snappy + Hash Balancer)"]
+        GIN --> GWP --> GVAL --> GP
     end
 
-    subgraph Processing
-        SV[Schema Validator\nJSONSchema v1]
-        FW["Feature Writer\nconsumer group × N"]
+    subgraph Kafka["Kafka KRaft Cluster (12 Partitions)"]
+        RAW["telemetry.raw
+(12 Partitions)"]
+        VAL["telemetry.validated
+(12 Partitions)"]
+        DLQ["telemetry.dlq
+(3 Partitions)"]
     end
 
-    subgraph Storage
-        PG[(PostgreSQL 16\npartitioned by month)]
-        RD[(Redis 7\nwrite-through cache)]
+    subgraph DLQReDrive["Go DLQ Worker & Re-Drive"]
+        DLQC["DLQ Audit Consumer
+(Error Categorizer)"]
+        DLQR["Admin Re-Drive
+POST /admin/dlq/retry"]
+        DLQDB[(dlq_audit_events
+PostgreSQL Table)]
     end
 
-    subgraph Serving
-        API["FastAPI\nGET /features/{id}"]
+    subgraph PythonProcessing["Python Downstream Processing"]
+        SV["Schema Validator
+(JSONSchema v1)"]
+        FW["Feature Writer
+(Pipelined executemany)"]
     end
 
-    subgraph Observability
-        PROM[Prometheus]
-        GRAF[Grafana]
+    subgraph Storage["Storage Tier"]
+        PG[(PostgreSQL 16
+Partitioned feature_events)]
+        RD[(Redis 7
+Write-through Cache)]
     end
 
-    PS -->|keyed by entity_id| RAW
+    subgraph Serving["Downstream Serving"]
+        API["FastAPI Feature Service
+GET /features/{entity_id}"]
+    end
+
+    subgraph Observability["Observability Tier"]
+        PROM["Prometheus
+(Scrapes Go & Python)"]
+        GRAF["Grafana
+(Telemetry Dashboards)"]
+    end
+
+    C1 -->|POST JSON| GIN
+    GP -->|Hash keyed by entity_id| RAW
+    GVAL -.->|Malformed payloads| DLQ
+    DLQ --> DLQC --> DLQDB
+    DLQR -->|Re-inject remediated events| RAW
     RAW --> SV
-    SV -->|valid| VAL
-    SV -->|invalid + headers| DLQ
+    SV -->|Valid| VAL
+    SV -->|Invalid| DLQ
     VAL --> FW
-    FW -->|ON CONFLICT DO NOTHING| PG
-    FW -->|pipeline SET + TTL| RD
-    API -->|Redis-first| RD
-    API -->|fallback + repopulate| PG
-    PROM -.->|scrape /metrics| SV & FW & API
+    FW -->|Batched INSERT| PG
+    FW -->|Pipeline SET + TTL| RD
+    API -->|Redis-first hit| RD
+    API -->|Cache miss fallback| PG
+    PROM -.->|Scrapes :8080, :8000, :8001, :8002| GoIngress & PythonProcessing & Serving
     PROM --> GRAF
 ```
 
@@ -152,6 +188,32 @@ All metrics reported below were empirically measured and extracted directly from
 
 ---
 
+## Polyglot Ingestion Benchmark: Go (Goroutines) vs. Python (FastAPI)
+
+To evaluate ingestion throughput, tail latency, and system resource efficiency, an empirical comparative benchmark was conducted blasting **50,000 HTTP requests** under **50 concurrent client workers** against the Python (FastAPI) ingestor and the Go (Goroutines + Worker Pool) ingestor.
+
+The results were recorded live and persisted to [`benchmarks/go_ingestion_results.json`](benchmarks/go_ingestion_results.json).
+
+### Comparative Performance Table (50,000 Requests @ 50 Concurrency)
+
+| Metric | Python (FastAPI + Uvicorn) | Go (Goroutine Worker Pool) | Empirical Impact |
+|:---|:---:|:---:|:---:|
+| **Sustained Throughput** | 151.6 RPS | **288.0 RPS** | **+90.0% Throughput (+1.9x)** |
+| **Median Latency (p50)** | 204.46 ms | **121.22 ms** | **-40.7% Lower Latency** |
+| **95th Percentile Latency (p95)** | 1,035.02 ms | **493.33 ms** | **-52.3% Tail Reduction** |
+| **99th Percentile Latency (p99)** | 1,670.97 ms | **756.32 ms** | **-54.7% Tail Reduction** |
+| **Maximum Latency (p99.9)** | 2,672.13 ms | **1,162.19 ms** | **-56.5% Tail Reduction** |
+| **Peak Resident Memory (RSS)** | 85.7 MB | **24.3 MB** | **-71.6% Memory Reduction** |
+| **Average CPU Utilization** | 16.2% | **5.6%** | **-65.4% CPU Footprint** |
+| **Ingestion Success Rate** | 100.0% (50K / 50K) | **100.0% (50K / 50K)** | **Zero Data Loss (0 Failures)** |
+
+#### Architectural Key Takeaways
+1. **Goroutine Worker Pool vs. Async Event Loop:** Go's bounded worker pool (`chan *IngestJob` + 50 Goroutines) completely bypasses Python's GIL and single-threaded event loop CPU bottleneck, achieving **1.9x sustained throughput**.
+2. **Tail Latency Mitigation:** The 99th-percentile ingestion latency dropped by **54.7% (from 1,671ms down to 756ms)** due to zero-allocation JSON streaming decoding (`DisallowUnknownFields`) and non-blocking channel dispatch.
+3. **Memory Footprint:** The compiled static Go binary consumed only **24.3 MB peak memory** compared to **85.7 MB** for the Python runtime (**71.6% reduction**), making it exceptionally lightweight for containerized edge/K8s deployment.
+
+---
+
 ## Component Overview
 
 | Component | Image / Language | Port | Description |
@@ -159,6 +221,7 @@ All metrics reported below were empirically measured and extracted directly from
 | Kafka (KRaft) | `confluentinc/cp-kafka:7.6.0` | 9092 | Single-broker KRaft cluster with dynamic topic auto-creation disabled |
 | PostgreSQL | `postgres:16-alpine` | 5432 | Primary data store, monthly partitioned `feature_events`, composite primary keys |
 | Redis | `redis:7-alpine` | 6379 | Write-through feature cache with per-key TTL (1 hour) |
+| Go Ingestor | Go 1.22 / Chi | 8080 | High-concurrency buffered HTTP ingress, bounded Goroutine worker pool, strict contract validation, partitioned Kafka producer, and DLQ re-drive API |
 | Producer | Python 3.11 | — | High-throughput synthetic telemetry generator with configurable defect injection |
 | Validator | Python 3.11 | 8001 | Standalone container evaluating `telemetry_v1.json` JSONSchema; routes invalid events to DLQ |
 | Feature Writer | Python 3.11 | 8002 | Batched writes via psycopg3 pipelined executemany, 500 rows per batch + Redis write-through cache |

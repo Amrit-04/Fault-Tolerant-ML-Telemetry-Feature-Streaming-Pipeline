@@ -1,0 +1,67 @@
+{
+  "benchmark_metadata": {
+    "timestamp": "2026-10-25T06:23:06.914880+00:00",
+    "target_requests": 50000,
+    "concurrency": 50,
+    "platform": "win32",
+    "cpu_count": 16
+  },
+  "python_ingestor": {
+    "engine": "Python (FastAPI)",
+    "target_url": "http://127.0.0.1:8000/api/v1/telemetry/ingest",
+    "total_requests": 50000,
+    "concurrency": 50,
+    "duration_seconds": 329.92,
+    "throughput_rps": 151.6,
+    "success_count": 50000,
+    "failure_count": 0,
+    "latency_ms": {
+      "min": 1.94,
+      "p50": 204.46,
+      "p90": 774.8,
+      "p95": 1035.02,
+      "p99": 1670.97,
+      "p999": 2672.13,
+      "max": 5795.96,
+      "mean": 327.26
+    },
+    "resource_footprint": {
+      "avg_cpu_percent": 16.2,
+      "peak_cpu_percent": 75.2,
+      "avg_memory_mb": 82.0,
+      "peak_memory_mb": 85.7
+    }
+  },
+  "go_ingestor": {
+    "engine": "Go (Goroutine Pool)",
+    "target_url": "http://127.0.0.1:8080/api/v1/telemetry/ingest?async=true",
+    "total_requests": 50000,
+    "concurrency": 50,
+    "duration_seconds": 173.632,
+    "throughput_rps": 288.0,
+    "success_count": 50000,
+    "failure_count": 0,
+    "latency_ms": {
+      "min": 1.3,
+      "p50": 121.22,
+      "p90": 379.03,
+      "p95": 493.33,
+      "p99": 756.32,
+      "p999": 1162.19,
+      "max": 2260.82,
+      "mean": 171.38
+    },
+    "resource_footprint": {
+      "avg_cpu_percent": 5.6,
+      "peak_cpu_percent": 82.0,
+      "avg_memory_mb": 23.4,
+      "peak_memory_mb": 24.3
+    }
+  },
+  "comparison_metrics": {
+    "throughput_multiplier": 1.9,
+    "throughput_gain_pct": 90.0,
+    "p99_latency_reduction_pct": 54.7,
+    "memory_footprint_reduction_pct": 71.6
+  }
+}

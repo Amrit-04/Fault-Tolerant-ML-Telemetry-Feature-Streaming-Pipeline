@@ -1,0 +1,27 @@
+# Multi-stage static build for Go Telemetry Ingestor
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /src
+
+# Download dependencies
+COPY ingestor-go/go.mod ingestor-go/go.sum ./
+RUN go mod download
+
+# Copy source code and build statically
+COPY ingestor-go/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /src/bin/ingestor ./cmd/ingestor
+
+# Minimal runtime image
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates tzdata curl
+
+WORKDIR /app
+COPY --from=builder /src/bin/ingestor /usr/local/bin/ingestor
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/ingestor"]

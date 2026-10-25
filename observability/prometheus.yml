@@ -6,6 +6,12 @@ rule_files:
   - /etc/prometheus/alerting_rules.yml
 
 scrape_configs:
+  # Go High-Throughput Ingestion Service
+  - job_name: telemetry-ingestor-go
+    static_configs:
+      - targets: ["telemetry-ingestor-go:8080"]
+    metrics_path: /metrics
+
   # Pipeline services
   - job_name: validator
     static_configs:

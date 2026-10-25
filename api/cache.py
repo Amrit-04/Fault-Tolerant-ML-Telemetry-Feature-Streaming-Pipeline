@@ -51,12 +51,17 @@ class FeatureCache:
                 logger.warning(f"Redis unavailable at startup: {e}")
                 self._redis = None
 
-        self._pg = psycopg.connect(
-            self.postgres_dsn,
-            autocommit=True,
-            row_factory=dict_row,
-        )
-        logger.info("Connected to PostgreSQL")
+        try:
+            self._pg = psycopg.connect(
+                self.postgres_dsn,
+                autocommit=True,
+                row_factory=dict_row,
+                connect_timeout=1,
+            )
+            logger.info("Connected to PostgreSQL")
+        except Exception as e:
+            logger.warning(f"PostgreSQL unavailable at startup: {e}")
+            self._pg = None
 
     def close(self):
         """Close connections gracefully."""

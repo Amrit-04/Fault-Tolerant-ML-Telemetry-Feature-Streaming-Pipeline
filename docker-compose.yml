@@ -121,6 +121,40 @@ services:
       - simulate
 
   # ---------------------------------------------------------------------------
+  # Go High-Throughput Ingestion & DLQ Re-Drive Service
+  # ---------------------------------------------------------------------------
+  telemetry-ingestor-go:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestor
+    container_name: telemetry-ingestor-go
+    hostname: telemetry-ingestor-go
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      HTTP_PORT: 8080
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_RAW_TOPIC: telemetry.raw
+      KAFKA_DLQ_TOPIC: telemetry.dlq
+      KAFKA_PARTITIONS: ${KAFKA_PARTITIONS:-12}
+      WORKER_POOL_SIZE: 50
+      WORKER_BUFFER_SIZE: 10000
+      POSTGRES_URL: postgresql://pipeline:pipeline@postgres:5432/pipeline?sslmode=disable
+      KAFKA_BATCH_SIZE: 1000
+      KAFKA_BATCH_TIMEOUT_MS: 10
+      DLQ_WORKER_CONCURRENCY: 4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
   # Schema Validator
   # ---------------------------------------------------------------------------
   validator:
