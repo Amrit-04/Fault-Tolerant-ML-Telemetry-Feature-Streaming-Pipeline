@@ -325,27 +325,9 @@ Configurations with 1 partition cannot scale beyond 1 consumer due to Kafka's pa
 
 ```bash
 # Cache ON:
-
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-231F20?style=flat&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
-[![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=flat&logo=redis&logoColor=white)](https://redis.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-E6522C?style=flat&logo=prometheus&logoColor=white)](https://prometheus.io/)
-[![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?style=flat&logo=grafana&logoColor=white)](https://grafana.com/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
-
 make bench-latency
 
 # Cache OFF:
-
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-231F20?style=flat&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
-[![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=flat&logo=redis&logoColor=white)](https://redis.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-E6522C?style=flat&logo=prometheus&logoColor=white)](https://prometheus.io/)
-[![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?style=flat&logo=grafana&logoColor=white)](https://grafana.com/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
-
 CACHE_ENABLED=false docker compose up -d api
 make bench-latency
 ```
@@ -460,19 +442,17 @@ The pre-provisioned **"ML Telemetry Pipeline"** dashboard includes 12 panels gro
 
 Access Grafana at `http://localhost:3000` (credentials: `admin` / `admin`).
 
-### Captured Dashboard Views
+### Operational Dashboard Views & Metrics Monitoring
 
-#### Pipeline Throughput Under Peak Load
-*Capture during `make bench-throughput` to display sustained ingestion rates and partition lag.*  
-![Pipeline Throughput Dashboard](docs/grafana_throughput.png)
-
-#### API Latency & Cache Hit Ratio Under Load
-*Capture during `make bench-latency` to display serving latency and cache hit percentages.*  
-![API Latency and Serving Dashboard](docs/grafana_latency.png)
-
-> **Screenshot Capture Instructions:**
-> 1. Start the throughput test: `make bench-throughput`. While running (around the 2-minute mark), open `http://localhost:3000/d/ml-telemetry-pipeline`, set time range to `Last 5 minutes` and auto-refresh to `5s`, capture a screenshot, and save it to `docs/grafana_throughput.png`.
-> 2. Run the latency load test: `make bench-latency`. During the run, scroll to the "API — Feature Serving" row, capture a screenshot of the p50/p95/p99 latency and cache hit ratio panels, and save it to `docs/grafana_latency.png`.
+> [!TIP]
+> **Pre-provisioned Telemetry Dashboard Available at `http://localhost:3000`** (credentials: `admin` / `admin`).
+> 
+> - **Pipeline Throughput & Consumer Lag**: Monitors sustained ingestion rates (events/sec), consumer partition lag, and DLQ re-drive status during peak load.
+> - **API Serving Latency & Cache Ratio**: Real-time p50 / p95 / p99 query latencies, Redis cache hit percentages, and active connection saturation.
+>
+> **Capturing Dashboard Artifacts:**
+> 1. Run `make bench-throughput`. While running (around the 2-minute mark), navigate to `http://localhost:3000/d/ml-telemetry-pipeline`, set time range to `Last 5 minutes` and auto-refresh to `5s`, capture a screenshot, and save to `docs/grafana_throughput.png`.
+> 2. Run `make bench-latency`. In Grafana, scroll to the "API — Feature Serving" row, capture a screenshot of the p50/p95/p99 latency and cache hit ratio panels, and save to `docs/grafana_latency.png`.
 
 ---
 
@@ -480,27 +460,9 @@ Access Grafana at `http://localhost:3000` (credentials: `admin` / `admin`).
 
 ```bash
 # Unit tests (76 passing tests, no external services required)
-
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-231F20?style=flat&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
-[![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=flat&logo=redis&logoColor=white)](https://redis.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-E6522C?style=flat&logo=prometheus&logoColor=white)](https://prometheus.io/)
-[![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?style=flat&logo=grafana&logoColor=white)](https://grafana.com/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
-
 make test
 
 # Integration tests (verifies end-to-end pipeline with running containers)
-
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-231F20?style=flat&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
-[![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=flat&logo=redis&logoColor=white)](https://redis.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-E6522C?style=flat&logo=prometheus&logoColor=white)](https://prometheus.io/)
-[![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?style=flat&logo=grafana&logoColor=white)](https://grafana.com/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
-
 make test-integration
 ```
 
